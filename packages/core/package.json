@@ -1,6 +1,7 @@
 {
   "name": "@devai/core",
   "version": "1.0.0",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -8,6 +9,7 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
+    "@devai/tools": "*",
     "@langchain/core": "^0.3.0",
     "@langchain/langgraph": "^0.2.0",
     "zod": "^3.23.0"
