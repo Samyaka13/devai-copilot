@@ -1,0 +1,20 @@
+{
+  "name": "@devai/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@devai/core": "*",
+    "@langchain/community": "^0.3.0",
+    "@langchain/core": "^0.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
