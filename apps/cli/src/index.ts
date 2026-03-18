@@ -1,7 +1,7 @@
-import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { HumanMessage } from "@langchain/core/messages";
 import { createDevAIGraph } from "@devai/core";
 import * as readline from "node:readline";
+import { ChatOllama } from "@langchain/ollama";
 
 // 1. Initialize the local Ollama model
 // Make sure you have pulled a capable model locally, e.g., `ollama run llama3.1` or `qwen2.5-coder`
@@ -9,7 +9,7 @@ const model = new ChatOllama({
   baseUrl: "http://localhost:11434", // Default Ollama port
   model: "llama3.1", // Change this to whatever model you have pulled
   temperature: 0, // 0 is best for strict coding and routing tasks
-});
+  });
 
 // 2. Compile our LangGraph multi-agent workflow
 const graph = createDevAIGraph(model);

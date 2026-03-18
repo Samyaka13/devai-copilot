@@ -11,10 +11,11 @@
   "dependencies": {
     "@devai/core": "*",
     "@langchain/community": "^0.3.0",
-    "@langchain/core": "^0.3.0"
+    "@langchain/core": "^0.3.80",
+    "@langchain/ollama": "^1.2.6"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }
