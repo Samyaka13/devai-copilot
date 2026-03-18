@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "@devai/core": "*",
-    "@langchain/community": "^0.3.0",
-    "@langchain/core": "^0.3.80",
+    "@langchain/core": "^1.1.33",
     "@langchain/ollama": "^1.2.6"
   },
   "devDependencies": {
