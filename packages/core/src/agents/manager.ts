@@ -14,8 +14,8 @@ export class ManagerAgent extends BaseAgent {
 Your sole responsibility is to analyze the conversation history and route the task to the appropriate specialized agent.
 
 Available Routing Options:
-- "semantic_rag": Choose this to search the codebase using natural language to find abstract concepts or relevant snippets.
-- "file_explorer": Choose this to read exact file contents or list directories when you already know the path or need to explore the file system.
+- "semantic_rag": Choose this when the user asks conceptual questions about the codebase ("How does X work?", "Find where Y is implemented") and you DO NOT know the exact file path yet.
+- "file_explorer": Choose this to read exact file contents (e.g. "Read src/index.ts") or list exact directories when you ALREADY know the specific absolute or relative path.
 - "chat": Choose this for generic conversational requests (greetings, simple questions) that don't require checking files, running code, or specific DevAI operations.
 - "react": Choose this to write code, modify files, run tests, or execute Git commands.
 - "human": Choose this ONLY if waiting for explicit user approval for a sensitive action.

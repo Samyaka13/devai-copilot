@@ -161,6 +161,15 @@ function startChatLoop(graph: any) {
         });
 
         for await (const event of stream) {
+          // Provide visibility so the user doesn't think the CLI froze during local Ollama processing
+          if (event.event === "on_chain_start") {
+             if (event.name === "manager") {
+                process.stdout.write("\n🧠 [Manager analyzing request...]\n");
+             } else if (event.name === "chat") {
+                process.stdout.write("\n💬 [Composing response...]\n\n");
+             }
+          }
+
           // Skip internal manager node streaming to avoid printing raw JSON
           if (event.event === "on_chat_model_stream" && event.metadata?.langgraph_node === "manager") continue;
 
@@ -177,6 +186,47 @@ function startChatLoop(graph: any) {
             }
           }
         }
+
+        // --- Handle Human-In-The-Loop Interrupts ---
+        const finalState = await graph.getState(threadConfig);
+        const tasks = finalState.tasks || [];
+        const isInterrupted = tasks.length > 0 && tasks[0].interrupts?.length > 0;
+        
+        if (isInterrupted) {
+          const interruptPayload = tasks[0].interrupts[0].value;
+          const toolCalls = interruptPayload.toolCalls || [];
+          console.log(`\n⚠️  [HITL] Sensitive action requested: ${toolCalls.map((t: any) => t.name).join(", ")}`);
+          
+          rl.question("Do you approve this action? (Y/N): ", async (answer) => {
+            if (answer.toLowerCase() === "y" || answer.toLowerCase() === "yes") {
+              console.log("\n✅ Action approved. Resuming execution...\n");
+              
+              // To resume, we send a Command to LangGraph through streamEvents
+              const { Command } = await import("@langchain/langgraph");
+              const resumeStream = await graph.streamEvents(
+                new Command({ resume: true }), 
+                { version: "v2", ...threadConfig }
+              );
+              
+              // Handle the remainder of the graph
+              for await (const resumeEvent of resumeStream) {
+                 if (resumeEvent.event === "on_tool_start") {
+                   console.log(`\n\n🔧 [Executing Approved Tool]: ${resumeEvent.name}...`);
+                 }
+              }
+              console.log("\n-----------------------------------");
+              askQuestion();
+            } else {
+              console.log("\n❌ Action denied. Resetting state.\n");
+              // A real implementation might append an error to messages,
+              // for now we just gracefully ask the next question and do NOT resume.
+              console.log("\n-----------------------------------");
+              askQuestion();
+            }
+          });
+          return; // Skip normal question re-prompt
+        }
+
       } catch (error) {
         console.error("\n❌ Error executing graph:", error);
       }

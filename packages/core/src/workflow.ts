@@ -1,4 +1,4 @@
-import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph"; // <-- Added MemorySaver
+import { StateGraph, START, END, MemorySaver, interrupt } from "@langchain/langgraph"; // <-- Added MemorySaver and interrupt
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { DevAIState, DevAIStateType } from "./state.js";
 import { ManagerAgent, FileExplorerAgent, ReActAgent, ChatAgent } from "./agents/index.js";
@@ -27,6 +27,20 @@ export function createDevAIGraph(config: DevAIModelConfig) {
     .addNode("react", async (state) => await react.execute(state))
     .addNode("semantic_rag", async (state) => await semanticRag.execute(state))
     .addNode("chat", async (state) => await chat.execute(state))
+    .addNode("human_approval", (state: DevAIStateType) => {
+      // Flag sensitive tool calls using LangGraph v2 interrupt API
+      const lastMessage = state.messages[state.messages.length - 1];
+      const toolCalls = (lastMessage as any)?.tool_calls;
+      
+      interrupt({
+        action: "approve_tools",
+        toolCalls: toolCalls
+      });
+      
+      // If user denied, we could append an error message or similar
+      // For now, we trust the CLI only resumes if approved.
+      return state;
+    })
     .addNode("tools", toolNode)
     
     .addEdge(START, "manager")
@@ -46,13 +60,21 @@ export function createDevAIGraph(config: DevAIModelConfig) {
     })
     .addConditionalEdges("react", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      return (lastMessage as any)?.tool_calls?.length ? "tools" : END;
+      const toolCalls = (lastMessage as any)?.tool_calls;
+      if (toolCalls && toolCalls.length > 0) {
+        // Flag sensitive tool calls
+        const sensitiveTools = ["write_file", "run_terminal_command", "git_commit"];
+        const isSensitive = toolCalls.some((tc: any) => sensitiveTools.includes(tc.name));
+        return isSensitive ? "human_approval" : "tools";
+      }
+      return END;
     })
     .addConditionalEdges("semantic_rag", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
       return (lastMessage as any)?.tool_calls?.length ? "tools" : END;
     })
     .addEdge("chat", END)
+    .addEdge("human_approval", "tools")
     
     .addEdge("tools", "manager");
 
