@@ -4,6 +4,8 @@ import { ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings } from "@langchain
 import { HumanMessage } from "@langchain/core/messages";
 import { createDevAIGraph, DevAIModelConfig } from "@devai/core";
 import * as readline from "node:readline";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 // New imports for the Codebase Loader
 import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
@@ -62,9 +64,23 @@ async function getRetriever(choice: string) {
     }
   }
 
-  // 2. Load the actual code files (Scanning the core package for this test)
+  // 2. Load the actual code files dynamically (defaults to current working directory)
+  // Check if there is an explicit context path, otherwise use process.cwd()
+  let targetPath = process.env.DEVAI_CONTEXT_PATH || process.cwd();
+  
+  // If no env is set, and we are running inside apps/cli, let's restrict to a safe directory relative to it
+  // This prevents accidentally loading massive node_modules if run blindly
+  if (!process.env.DEVAI_CONTEXT_PATH && fs.existsSync(path.join(process.cwd(), "src"))) {
+    targetPath = path.join(process.cwd(), "src");
+  }
+
+  // Gracefully handle if the target path doesn't exist
+  if (!fs.existsSync(targetPath)) {
+    console.warn(`\n⚠️  Codebase path ${targetPath} does not exist. Semantic RAG may return no results.`);
+  }
+
   const loader = new DirectoryLoader(
-    "../../packages/core/src", // Adjust this path to scan different folders
+    targetPath, 
     {
       ".ts": (path) => new TextLoader(path),
       ".js": (path) => new TextLoader(path),
