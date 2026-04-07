@@ -1,65 +1,159 @@
+import "dotenv/config"; // Loads the .env file for the Gemini API Key
+import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage } from "@langchain/core/messages";
-import { createDevAIGraph } from "@devai/core";
+import { createDevAIGraph, DevAIModelConfig } from "@devai/core";
 import * as readline from "node:readline";
-import { ChatOllama } from "@langchain/ollama";
 
-// 1. Initialize the local Ollama model
-// Make sure you have pulled a capable model locally, e.g., `ollama run llama3.1` or `qwen2.5-coder`
-const model = new ChatOllama({
-  baseUrl: "http://localhost:11434", // Default Ollama port
-  model: "llama3.1", // Change this to whatever model you have pulled
-  temperature: 0, // 0 is best for strict coding and routing tasks
-  });
+// New imports for the Codebase Loader
+import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
+import { DirectoryLoader } from "@langchain/classic/document_loaders/fs/directory";
+import { TextLoader } from "@langchain/classic/document_loaders/fs/text";
+import { RecursiveCharacterTextSplitter } from "@langchain/classic/text_splitter";
 
-// 2. Compile our LangGraph multi-agent workflow
-const graph = createDevAIGraph(model);
-
-// 3. Set up the terminal input interface
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-console.log("🚀 DevAI Copilot CLI Initialized.");
-console.log("Type 'exit' to quit.\n");
-
-const askQuestion = () => {
-  rl.question("You: ", async (input) => {
-    if (input.toLowerCase() === "exit") {
-      rl.close();
-      return;
-    }
-
-    try {
-      // 4. Run the user's input through the LangGraph state machine
-      console.log("\n[DevAI is thinking...]");
-      
-      const initialState = {
-        messages: [new HumanMessage(input)],
-      };
-
-      // Stream the events as the agents talk to each other
-      const stream = await graph.stream(initialState, { streamMode: "values" });
-
-      for await (const event of stream) {
-        const lastMessage = event.messages[event.messages.length - 1];
-        
-        // Print the agent's response or tool execution status
-        if (lastMessage.name) {
-            console.log(`\n🤖 [${lastMessage.name}]: ${lastMessage.content}`);
-        } else if (lastMessage._getType() === "ai") {
-            console.log(`\n🤖: ${lastMessage.content}`);
-        }
-      }
-      
-    } catch (error) {
-      console.error("\n❌ Error executing graph:", error);
-    }
-
-    console.log("\n-----------------------------------");
-    askQuestion();
+// --- Helper Functions to initialize models ---
+function getGeminiModel() {
+  if (!process.env.GOOGLE_API_KEY) {
+    console.warn("\n⚠️  WARNING: GOOGLE_API_KEY not found in .env file.");
+    console.warn("⚠️  Falling back to Local Ollama model.\n");
+    return getOllamaModel();
+  }
+  return new ChatGoogleGenerativeAI({
+    model: "gemini-1.5-flash",
+    temperature: 0,
   });
-};
+}
 
-// Start the chat loop
-askQuestion();
+function getOllamaModel() {
+  return new ChatOllama({
+    baseUrl: "http://localhost:11434",
+    model: "llama3.1",
+    temperature: 0,
+  });
+}
+
+// --- The Semantic RAG Retriever ---
+async function getRetriever() {
+  console.log("\n📚 Loading and Indexing Codebase...");
+
+  // 1. Initialize Embeddings (Translates code into searchable math)
+  const embeddings = new OllamaEmbeddings({
+    baseUrl: "http://localhost:11434",
+    model: "nomic-embed-text",
+  });
+
+  // 2. Load the actual code files (Scanning the core package for this test)
+  const loader = new DirectoryLoader(
+    "../../packages/core/src", // Adjust this path to scan different folders
+    {
+      ".ts": (path) => new TextLoader(path),
+      ".js": (path) => new TextLoader(path),
+    }
+  );
+  
+  const docs = await loader.load();
+  console.log(`✅ Loaded ${docs.length} files from the codebase.`);
+
+  // 3. Split the code into chunks so the AI can digest it
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 1000,
+    chunkOverlap: 200,
+  });
+  const splitDocs = await splitter.splitDocuments(docs);
+  console.log(`✂️  Split code into ${splitDocs.length} searchable chunks.`);
+
+  // 4. Store in memory and return the retriever
+  const vectorStore = new MemoryVectorStore(embeddings);
+  await vectorStore.addDocuments(splitDocs);
+  
+  console.log("🔍 Vector Store Ready!\n");
+  
+  // Return top 3 most relevant code chunks
+  return vectorStore.asRetriever({ k: 3 });
+}
+
+// --- The Startup Wizard ---
+console.log("=========================================");
+console.log("🚀 Welcome to DevAI Copilot Setup");
+console.log("=========================================\n");
+console.log("Choose your AI Engine architecture:");
+console.log("1. Fully Cloud [Default] (Gemini API - Fastest, Most Accurate)");
+console.log("2. Fully Local (Ollama - Maximum Privacy)");
+console.log("3. Hybrid (Manager: Gemini, Workers: Ollama)\n");
+
+// Note: Made this callback 'async' to await the retriever
+rl.question("Enter 1, 2, or 3 (Press Enter for Default): ", async (choice) => {
+  let config: DevAIModelConfig;
+
+  // Build the retriever FIRST so we can inject it
+  const myVectorStoreRetriever = await getRetriever();
+
+  if (choice === "2") {
+    console.log("\n⚙️  Booting Fully Local Architecture...");
+    const ollama = getOllamaModel();
+    config = { managerModel: ollama, ragModel: ollama, reactModel: ollama, retriever: myVectorStoreRetriever };
+  } else if (choice === "3") {
+    console.log("\n⚙️  Booting Hybrid Architecture...");
+    config = {
+      managerModel: getGeminiModel(),
+      ragModel: getOllamaModel(),
+      reactModel: getOllamaModel(),
+      retriever: myVectorStoreRetriever
+    };
+  } else {
+    console.log("\n⚙️  Booting Fully Cloud Architecture...");
+    const gemini = getGeminiModel();
+    config = { managerModel: gemini, ragModel: gemini, reactModel: gemini, retriever: myVectorStoreRetriever };
+  }
+
+  // Compile the graph with the chosen configuration
+  const graph = createDevAIGraph(config);
+  
+  // Start the actual chat loop
+  startChatLoop(graph);
+});
+
+// --- The Main Chat Loop ---
+function startChatLoop(graph: any) {
+  console.log("✅ DevAI Copilot Initialized. Type 'exit' to quit.\n");
+
+  const askQuestion = () => {
+    rl.question("You: ", async (input) => {
+      if (input.toLowerCase() === "exit") {
+        rl.close();
+        return;
+      }
+
+      try {
+        console.log("\n[DevAI is thinking...]\n");
+        const initialState = { messages: [new HumanMessage(input)] };
+        const stream = await graph.streamEvents(initialState, { version: "v2" });
+
+        for await (const event of stream) {
+          if (event.event === "on_chat_model_stream") {
+            const chunk = event.data.chunk?.content;
+            if (chunk && typeof chunk === "string") {
+              process.stdout.write(chunk);
+            }
+          } else if (event.event === "on_tool_start") {
+            console.log(`\n\n🔧 [Executing Tool]: ${event.name}...`);
+          } else if (event.event === "on_chat_model_end") {
+            console.log("\n");
+          }
+        }
+      } catch (error) {
+        console.error("\n❌ Error executing graph:", error);
+      }
+
+      console.log("\n-----------------------------------");
+      askQuestion();
+    });
+  };
+
+  askQuestion();
+}

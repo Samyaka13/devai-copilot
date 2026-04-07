@@ -1,53 +1,57 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { DevAIState, DevAIStateType } from "./state.js";
-import { ManagerAgent, RAGAgent, ReActAgent } from "./agents/index.js";
+import { ManagerAgent, FileExplorerAgent, ReActAgent } from "./agents/index.js";
 import { allTools } from "@devai/tools";
+import { SemanticRagAgent } from "./agents/semantic-rag.js";
 
-export function createDevAIGraph(model: any) {
-  // 1. Initialize our agents with the injected LLM
-  const manager = new ManagerAgent(model);
-  const rag = new RAGAgent(model);
-  const react = new ReActAgent(model);
+// 1. Define an interface for our flexible model architecture
+export interface DevAIModelConfig {
+  managerModel: any;
+  ragModel: any;
+  reactModel: any;
+  retriever: any;
+}
 
-  // 2. Initialize the ToolNode (LangGraph's built-in executor for bound tools)
-  const toolNode = new ToolNode(allTools);
+// 2. Accept the config object
+export function createDevAIGraph(config: DevAIModelConfig) {
+  // 3. Inject the models dynamically based on user choice
+  const manager = new ManagerAgent(config.managerModel);
+  const fileExplorer = new FileExplorerAgent(config.ragModel);
+  const react = new ReActAgent(config.reactModel);
+  const semanticRag = new SemanticRagAgent(config.ragModel,config.retriever)
 
-  // 3. Build the State Machine
+  const toolNode = new ToolNode(allTools as any[]);
+
   const workflow = new StateGraph(DevAIState)
-    // Add the execution nodes
     .addNode("manager", async (state) => await manager.execute(state))
-    .addNode("rag", async (state) => await rag.execute(state))
+    .addNode("file_explorer", async (state) => await fileExplorer.execute(state))
     .addNode("react", async (state) => await react.execute(state))
+    .addNode("semantic_rag", async (state) => await semanticRag.execute(state))
     .addNode("tools", toolNode)
-
-    // The graph ALWAYS starts by asking the Manager to evaluate the request
     .addEdge(START, "manager")
-
-    // 4. The Switchboard: Route based on the Manager's strict JSON output
     .addConditionalEdges("manager", (state: DevAIStateType) => state.next, {
-      rag: "rag",
+      file_explorer: "file_explorer",
       react: "react",
-      human: END, // We pause the graph here if human approval is needed
-      end: END,   // Task complete
+      semantic_rag: "semantic_rag",
+      human: END,
+      end: END,
     })
-
-    // 5. Tool Routing Logic for the Worker Agents
-    // If the RAG agent decides to use a tool, route to 'tools', otherwise it's done.
-    .addConditionalEdges("rag", (state: DevAIStateType) => {
+    // (Keep your existing END shortcuts here to prevent local loops!)
+    .addConditionalEdges("file_explorer", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      return (lastMessage as any)?.tool_calls?.length ? "tools" : "manager";
+      return (lastMessage as any)?.tool_calls?.length ? "tools" : END;
     })
-    
-    // If the ReAct agent decides to use a tool, route to 'tools', otherwise back to manager.
     .addConditionalEdges("react", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      return (lastMessage as any)?.tool_calls?.length ? "tools" : "manager";
+      return (lastMessage as any)?.tool_calls?.length ? "tools" : END;
+    })
+    .addConditionalEdges("semantic_rag", (state: DevAIStateType) => {
+      const lastMessage = state.messages[state.messages.length - 1];
+      return (lastMessage as any)?.tool_calls?.length ? "tools" : END;
     })
 
-    // 6. After a tool executes, send the results back to the Manager to re-evaluate
     .addEdge("tools", "manager");
 
-  // Compile and return the executable graph
   return workflow.compile();
 }

@@ -2,9 +2,9 @@ import { BaseAgent } from "./base.js";
 import { DevAIStateType } from "../state.js";
 import { fileSystemTools } from "@devai/tools";
 
-export class RAGAgent extends BaseAgent {
+export class FileExplorerAgent extends BaseAgent {
   constructor(model: any) {
-    super(model, "rag");
+    super(model, "file_explorer");
   }
 
   protected getSystemPrompt(state: DevAIStateType): string {
