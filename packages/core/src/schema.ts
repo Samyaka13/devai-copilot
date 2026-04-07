@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Validates the Manager Agent's routing decision
 export const ManagerDecisionSchema = z.object({
-  nextAgent: z.enum(["rag", "react", "memory", "human", "end"]),
+  nextAgent: z.enum(["semantic_rag", "file_explorer", "react", "human", "end"]),
   reasoning: z.string().describe("Explanation for why this agent was chosen"),
   extractedTask: z.string().describe("The specific sub-task for the next agent"),
 });

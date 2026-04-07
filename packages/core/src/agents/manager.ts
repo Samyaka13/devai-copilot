@@ -14,14 +14,15 @@ export class ManagerAgent extends BaseAgent {
 Your sole responsibility is to analyze the conversation history and route the task to the appropriate specialized agent.
 
 Available Routing Options:
-- "rag": Choose this to search the codebase or read files.
+- "semantic_rag": Choose this to search the codebase using natural language to find abstract concepts or relevant snippets.
+- "file_explorer": Choose this to read exact file contents or list directories when you already know the path or need to explore the file system.
 - "react": Choose this to write code, modify files, run tests, or execute Git commands.
 - "human": Choose this ONLY if waiting for explicit user approval for a sensitive action.
 - "end": Choose this if the user's overarching request has been completely fulfilled.
 
 CRITICAL RULES TO PREVENT INFINITE LOOPS:
 1. Analyze the chat history carefully. If the RAG or ReAct agent just provided a final answer that satisfies the user's request, you MUST choose "end". Do not repeat the task.
-2. For multi-step tasks (e.g., "Read X, then write Y"): If RAG just finished reading X, you MUST now route to "react" to write Y. 
+2. For multi-step tasks (e.g., "Read X, then write Y"): If semantic_rag or file_explorer just finished reading X, you MUST now route to "react" to write Y. 
 3. Never route to the same agent twice in a row unless the user provided new instructions.
 
 Current DevOps Context:

@@ -1,6 +1,6 @@
 import "dotenv/config"; // Loads the .env file for the Gemini API Key
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { HumanMessage } from "@langchain/core/messages";
 import { createDevAIGraph, DevAIModelConfig } from "@devai/core";
 import * as readline from "node:readline";
@@ -38,14 +38,29 @@ function getOllamaModel() {
 }
 
 // --- The Semantic RAG Retriever ---
-async function getRetriever() {
+async function getRetriever(choice: string) {
   console.log("\n📚 Loading and Indexing Codebase...");
 
   // 1. Initialize Embeddings (Translates code into searchable math)
-  const embeddings = new OllamaEmbeddings({
-    baseUrl: "http://localhost:11434",
-    model: "nomic-embed-text",
-  });
+  let embeddings;
+  if (choice === "2") {
+    embeddings = new OllamaEmbeddings({
+      baseUrl: "http://localhost:11434",
+      model: "nomic-embed-text",
+    });
+  } else {
+    // Fall back to Ollama if no Google key exists
+    if (!process.env.GOOGLE_API_KEY) {
+      embeddings = new OllamaEmbeddings({
+        baseUrl: "http://localhost:11434",
+        model: "nomic-embed-text",
+      });
+    } else {
+      embeddings = new GoogleGenerativeAIEmbeddings({
+        model: "text-embedding-004",
+      });
+    }
+  }
 
   // 2. Load the actual code files (Scanning the core package for this test)
   const loader = new DirectoryLoader(
@@ -91,7 +106,7 @@ rl.question("Enter 1, 2, or 3 (Press Enter for Default): ", async (choice) => {
   let config: DevAIModelConfig;
 
   // Build the retriever FIRST so we can inject it
-  const myVectorStoreRetriever = await getRetriever();
+  const myVectorStoreRetriever = await getRetriever(choice);
 
   if (choice === "2") {
     console.log("\n⚙️  Booting Fully Local Architecture...");
