@@ -119,8 +119,12 @@ rl.question("Enter 1, 2, or 3 (Press Enter for Default): ", async (choice) => {
 });
 
 // --- The Main Chat Loop ---
+// --- The Main Chat Loop ---
 function startChatLoop(graph: any) {
   console.log("✅ DevAI Copilot Initialized. Type 'exit' to quit.\n");
+
+  // Create a unique thread ID for this specific terminal session
+  const threadConfig = { configurable: { thread_id: "devai-cli-session" } };
 
   const askQuestion = () => {
     rl.question("You: ", async (input) => {
@@ -131,8 +135,15 @@ function startChatLoop(graph: any) {
 
       try {
         console.log("\n[DevAI is thinking...]\n");
-        const initialState = { messages: [new HumanMessage(input)] };
-        const stream = await graph.streamEvents(initialState, { version: "v2" });
+        
+        // We only send the NEW message. The checkpointer handles the history!
+        const stateUpdate = { messages: [new HumanMessage(input)] };
+        
+        // Pass the threadConfig into the streamEvents function
+        const stream = await graph.streamEvents(stateUpdate, { 
+          version: "v2",
+          ...threadConfig 
+        });
 
         for await (const event of stream) {
           if (event.event === "on_chat_model_stream") {
