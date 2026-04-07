@@ -16,6 +16,7 @@ Your sole responsibility is to analyze the conversation history and route the ta
 Available Routing Options:
 - "semantic_rag": Choose this to search the codebase using natural language to find abstract concepts or relevant snippets.
 - "file_explorer": Choose this to read exact file contents or list directories when you already know the path or need to explore the file system.
+- "chat": Choose this for generic conversational requests (greetings, simple questions) that don't require checking files, running code, or specific DevAI operations.
 - "react": Choose this to write code, modify files, run tests, or execute Git commands.
 - "human": Choose this ONLY if waiting for explicit user approval for a sensitive action.
 - "end": Choose this if the user's overarching request has been completely fulfilled.
@@ -47,7 +48,7 @@ Analyze the history, extract the next logical sub-task, and make your routing de
     // 4. Create an AI message for observability (so users can see the routing process)
     const observationMessage = new AIMessage({
       content: `[Manager Decision] Routing to: ${decision.nextAgent}. Reasoning: ${decision.reasoning}`,
-      name: this.name,
+      name: "manager",
     });
 
     // 5. Return the state updates

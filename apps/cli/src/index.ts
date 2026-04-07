@@ -161,6 +161,9 @@ function startChatLoop(graph: any) {
         });
 
         for await (const event of stream) {
+          // Skip internal manager node streaming to avoid printing raw JSON
+          if (event.event === "on_chat_model_stream" && event.metadata?.langgraph_node === "manager") continue;
+
           if (event.event === "on_chat_model_stream") {
             const chunk = event.data.chunk?.content;
             if (chunk && typeof chunk === "string") {
@@ -169,7 +172,9 @@ function startChatLoop(graph: any) {
           } else if (event.event === "on_tool_start") {
             console.log(`\n\n🔧 [Executing Tool]: ${event.name}...`);
           } else if (event.event === "on_chat_model_end") {
-            console.log("\n");
+            if (event.metadata?.langgraph_node !== "manager") {
+              console.log("\n");
+            }
           }
         }
       } catch (error) {
