@@ -22,6 +22,17 @@ Task: ${state.currentTask}`;
     public async execute(state: DevAIStateType): Promise<Partial<DevAIStateType>> {
         const query = state.currentTask;
 
+        // Guard: If no retriever was initialized (e.g. no codebase path), return a helpful message
+        if (!this.retriever) {
+            const { AIMessage } = await import("@langchain/core/messages");
+            return {
+                messages: [new AIMessage({
+                    content: "No codebase has been indexed yet. Please set the DEVAI_CONTEXT_PATH environment variable or ensure a valid source directory exists.",
+                    name: "semantic_rag",
+                })],
+            };
+        }
+
         // 1. Fetch relevant code snippets from the vector store
         const docs = await this.retriever.invoke(query);
 

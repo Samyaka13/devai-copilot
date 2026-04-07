@@ -63,7 +63,7 @@ export function createDevAIGraph(config: DevAIModelConfig) {
       const toolCalls = (lastMessage as any)?.tool_calls;
       if (toolCalls && toolCalls.length > 0) {
         // Flag sensitive tool calls
-        const sensitiveTools = ["write_file", "run_terminal_command", "git_commit"];
+        const sensitiveTools = ["write_file", "git_status", "git_diff", "git_commit"];
         const isSensitive = toolCalls.some((tc: any) => sensitiveTools.includes(tc.name));
         return isSensitive ? "human_approval" : "tools";
       }

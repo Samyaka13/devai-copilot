@@ -41,3 +41,24 @@ export const gitDiffTool = tool(
     }),
   }
 );
+
+// 3. Git Commit Tool
+export const gitCommitTool = tool(
+  async ({ message }) => {
+    try {
+      // Stage all changes first, then commit
+      await execAsync("git add -A");
+      const { stdout } = await execAsync(`git commit -m "${message.replace(/"/g, '\\"')}"`);
+      return stdout || "Commit created successfully.";
+    } catch (error: any) {
+      return `Error executing git commit: ${error.message}`;
+    }
+  },
+  {
+    name: "git_commit",
+    description: "Stages all changes and creates a git commit with the provided message.",
+    schema: z.object({
+      message: z.string().describe("The commit message to use"),
+    }),
+  }
+);

@@ -82,8 +82,8 @@ async function getRetriever(choice: string) {
   const loader = new DirectoryLoader(
     targetPath, 
     {
-      ".ts": (path) => new TextLoader(path),
-      ".js": (path) => new TextLoader(path),
+      ".ts": (filePath) => new TextLoader(filePath),
+      ".js": (filePath) => new TextLoader(filePath),
     }
   );
   
@@ -149,7 +149,6 @@ rl.question("Enter 1, 2, or 3 (Press Enter for Default): ", async (choice) => {
   startChatLoop(graph);
 });
 
-// --- The Main Chat Loop ---
 // --- The Main Chat Loop ---
 function startChatLoop(graph: any) {
   console.log("✅ DevAI Copilot Initialized. Type 'exit' to quit.\n");

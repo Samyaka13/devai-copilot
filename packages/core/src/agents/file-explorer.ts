@@ -1,6 +1,6 @@
 import { BaseAgent } from "./base.js";
 import { DevAIStateType } from "../state.js";
-import { fileSystemTools } from "@devai/tools";
+import { readOnlyTools } from "@devai/tools";
 
 export class FileExplorerAgent extends BaseAgent {
   constructor(model: any) {
@@ -8,7 +8,7 @@ export class FileExplorerAgent extends BaseAgent {
   }
 
   protected getSystemPrompt(state: DevAIStateType): string {
-    return `You are the Retrieval Agent (RAG) for DevAI Copilot. 
+    return `You are the File Explorer Agent for DevAI Copilot. 
 Your sole responsibility is to explore the codebase, read files, and answer the user's questions about architecture, implementation, and existing code.
 
 Instructions:
@@ -27,7 +27,7 @@ Current Task from Manager: ${state.currentTask}
     if (!this.model.bindTools) {
       throw new Error("The provided model does not support tool binding.");
     }
-    const modelWithTools = this.model.bindTools(fileSystemTools);
+    const modelWithTools = this.model.bindTools(readOnlyTools);
 
     // 2. Build the prompt using the conversation history
     const messages = this.buildPrompt(state);
