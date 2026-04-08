@@ -184,8 +184,10 @@ npm run test
 Example:
 
 ```bash
-export DEVAI_CONTEXT_PATH=/absolute/path/to/your/project
-export GOOGLE_API_KEY=your_key_here
+DEVAI_CONTEXT_PATH=/absolute/path/to/your/project
+GOOGLE_API_KEY=your_key_here
+GEMINI_MODEL=gemini_model_here
+OLLAMA_MODEL=ollama_model_here
 ```
 
 ---
@@ -216,4 +218,15 @@ DevAI Copilot demonstrates a practical pattern for building trustworthy coding a
 - **User approval checkpoints for high-impact actions**
 - **Local-first retrieval for code privacy and accuracy**
 
-If you are building production agentic systems, this repo is a great baseline architecture to extend.
+## 🌍 Open Source & Contributing
+
+**DevAI Copilot is open-source and open to everyone!** This project is a foundation, and I am actively looking for developers to configure, expand, and improve it. Whether you want to add new LangChain tools (like terminal execution), integrate persistent database memory (like SQLite/Postgres), refine the agent prompts, or build a frontend UI—your contributions are highly welcome.
+
+**How to get involved:**
+
+1. **Fork** the repository.
+2. **Create** a new branch for your feature or bugfix.
+3. **Commit** your changes.
+4. **Submit** a Pull Request.
+
+Let's build the future of autonomous, safe AI developer assistants together. Feel free to open an issue if you have ideas, questions, or just want to discuss the architecture!
