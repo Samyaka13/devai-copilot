@@ -1,43 +1,53 @@
 # 🚀 DevAI Copilot
 
-DevAI Copilot is a state-of-the-art, autonomous AI DevOps engineer and developer assistant. Built on a sophisticated **State-Machine Orchestration** architecture using [LangGraph](https://github.com/langchain-ai/langgraphjs), it seamlessly bridges the gap between high-level reasoning and local, secure execution. 
+DevAI Copilot is a modular, TypeScript-based AI developer assistant that combines:
+- **LangGraph state-machine orchestration** for controllable multi-step reasoning.
+- **Specialized agents** for routing, semantic understanding, file exploration, execution, and chat.
+- **A CLI experience** with **human-in-the-loop approval** for sensitive tool actions.
 
-This is not a simple LLM wrapper—it is a hyper-capable reasoning engine running across a multi-agent orchestrated graph.
-
----
-
-## 🔥 Core Features
-
-### 1. 🧠 Hybrid Intelligence Orchestration
-DevAI gives you the best of both cloud speed and local privacy. 
-- **The Manager (Gemini 1.5 Flash)**: Acts as the high-speed, cost-efficient brain that intelligently routes user tasks and analyzes history.
-- **The Workers (Local Ollama / LLaMA 3.1)**: Specialized agents (`semantic_rag`, `file_explorer`, `react`) process complex code search queries and execute sensitive environment tools locally without sending your codebase to the cloud.
-
-### 2. 🛡️ Human-in-the-Loop (HITL) execution pipeline
-DevAI's architecture includes a strict safety boundary node for highly-sensitive actions (like `write_file` or `run_command`).
-- The graph employs LangGraph v2 `interrupt()` mechanics.
-- If the `ReActAgent` determines code must be written or terminal commands must be run, execution **pauses**.
-- The CLI prompts the developer for a clear `Y/N` sequence. Execution sits completely stalled until explicitly approved, putting the developer safely in control of AI terminal workflows.
-
-### 3. 🔍 Semantic Code Awareness (RAG)
-It features a customized Retrieval-Augmented Generation implementation leveraging local embeddings into an in-memory Vector Store.
-- Instead of feeding massive, expensive context windows arbitrarily, DevAI Copilot's `Manager` identifies when you are asking conceptual questions (e.g., "How does authentication work?").
-- The system activates the `SemanticRagAgent`, converting your codebase into mathematical vector chunks to locate the exact abstract concepts fast and intelligently.
-
-### 4. 🔀 Specialized Multi-Agent Roles
-State transitions trigger specialized mini-agents.
-- **`Manager`**: The router.
-- **`Chat`**: Streams native conversational greetings token-by-token.
-- **`File_Explorer`**: Navigates absolute and relative directory structures dynamically.
-- **`ReAct`**: Operates filesystem and Git execution via bound LangChain tools.
+This repository is organized as a monorepo with independent packages for core orchestration, tools, and CLI runtime.
 
 ---
 
-## 🛠️ Architecture Flow
+## 📦 Repository Structure
+
+```text
+.
+├── apps/
+│   └── cli/                 # Interactive terminal app (startup wizard + chat loop)
+├── packages/
+│   ├── core/                # LangGraph state, workflow, and agents
+│   └── tools/               # File-system + git tools exposed to agents
+├── README.md
+└── package.json             # Workspace-level scripts
+```
+
+### Workspace Packages
+
+- **`@devai/core`**
+  - Defines shared state annotations (`DevAIState`).
+  - Implements agent classes (`Manager`, `ReAct`, `File Explorer`, `Semantic RAG`, `Chat`).
+  - Builds and compiles the LangGraph workflow with a MemorySaver checkpointer.
+
+- **`@devai/tools`**
+  - Exposes typed LangChain tools:
+    - Filesystem: `read_file`, `write_file`, `list_directory`
+    - Git: `git_status`, `git_diff`, `git_commit`
+  - Exports grouped tool sets (`readOnlyTools`, `fileSystemTools`, `devOpsTools`, `allTools`).
+
+- **`@devai/cli`**
+  - Bootstraps model choices (Cloud / Local / Hybrid).
+  - Builds an in-memory vector retriever by scanning and chunking the target codebase.
+  - Runs an interactive chat loop and handles HITL interrupts.
+
+---
+
+## 🧠 Architecture at a Glance
+
 ```mermaid
 graph TD;
     START:::global --> manager(Manager Agent)
-    
+
     manager -->|Concept Search| semantic_rag(Semantic RAG Agent)
     manager -->|Exact Path Read| file_explorer(File Explorer Agent)
     manager -->|Execution Task| react(ReAct Agent)
@@ -47,57 +57,163 @@ graph TD;
     react -.->|Tool Call Generated| hitl{🚨 Sensitive Tool?}
     hitl -->|Yes| human_node(Human Approval Interrupt)
     hitl -->|No| tools
-    
-    human_node --> |Approved| tools(Tool Executors)
-    
+
+    human_node -->|Approved| tools(Tool Executors)
+
     semantic_rag --> tools
     file_explorer --> tools
-    
+
     tools --> manager
     chat --> END
-    
+
     classDef global fill:#f9f,stroke:#333,stroke-width:2px;
 ```
+
+### Agent Responsibilities
+
+1. **Manager Agent**
+   - Produces structured routing decisions using a Zod schema.
+   - Chooses between `semantic_rag`, `file_explorer`, `react`, `chat`, `end`, or `human`.
+
+2. **Semantic RAG Agent**
+   - Answers conceptual codebase questions from retrieved snippets.
+   - Explicitly avoids hallucinating context outside retrieved documents.
+
+3. **File Explorer Agent**
+   - Read-only inspection using file/directory tools.
+   - Ideal for direct path reads and repository exploration.
+
+4. **ReAct Agent**
+   - Uses bound tools for implementation tasks and git operations.
+   - Executes development actions while respecting the global HITL gate.
+
+5. **Chat Agent**
+   - Handles conversational requests without tool execution.
+
+---
+
+## 🛡️ Human-in-the-Loop (HITL) Safety
+
+Sensitive tool calls are interrupted before execution and require explicit approval in CLI.
+
+Currently flagged as sensitive in workflow:
+- `write_file`
+- `git_status`
+- `git_diff`
+- `git_commit`
+
+When an interrupt is triggered:
+1. Execution pauses.
+2. The CLI displays requested tool names.
+3. User confirms with `Y/N`.
+4. On approval, graph resumes; otherwise action is denied.
+
+---
+
+## 🔍 Semantic Retrieval Flow
+
+On startup, the CLI builds a retriever with these steps:
+1. Resolve context path from `DEVAI_CONTEXT_PATH` or fallback to current working directory.
+2. Load supported text/code files recursively (`.ts`, `.js`, `.json`, `.md`, `.py`, `.yaml`, `.yml`).
+3. Filter noisy paths (`node_modules`, `dist`, `.git`, lock files).
+4. Split into chunks (`chunkSize: 1000`, `chunkOverlap: 200`).
+5. Embed and store in a `MemoryVectorStore`.
+6. Retrieve top-k snippets (`k = 3`) per semantic query.
+
+---
+
+## ⚙️ Prerequisites
+
+- **Node.js 20+** (workspace enforces `>=20.0.0`)
+- **npm**
+- **Ollama** running locally for local/hybrid execution
+- Optional `.env` with `GOOGLE_API_KEY` for Gemini-powered cloud/hybrid flows
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- [Node.js](https://nodejs.org/en) (v18+)
-- [Ollama](https://ollama.com/) running locally (for fully local and hybrid processing)
-- (Optional) `.env` config with `GOOGLE_API_KEY` for Hybrid execution speeds.
+### 1) Install dependencies
 
-### Installation
-
-1. **Clone & Install Dependencies**
 ```bash
-git clone https://github.com/your-username/devai-copilot.git
-cd devai-copilot
 npm install
 ```
 
-2. **Build Workspaces**
+### 2) Build all workspaces
+
 ```bash
-npm run build --workspaces
+npm run build
 ```
 
-3. **Start the Copilot CLI**
+### 3) Run the CLI
+
 ```bash
-cd apps/cli
-npm run start
+npm run build --workspace @devai/cli
+npm run start --workspace @devai/cli
 ```
-
-### Usage
-On startup, you can choose your desired architecture:
-1. **Fully Cloud** *(Default)*
-2. **Fully Local** *(Ollama models)*
-3. **Hybrid** *(Manager: Cloud, Workers: Local)*
-
-Try commands like:
-- *"Hello, what can you do?"* (Routed to ChatAgent natively)
-- *"How does the workflow state machine work?"* (Routed to SemanticRag)
-- *"Write a new typescript function that calculates factorial down in the /tmp directory"* (Routed to ReAct -> Hits Human Approval Node -> Executes if Y)
 
 ---
-*Built as a showcase for advanced Agentic Workflow implementations.*
+
+## 🧪 Useful Commands
+
+```bash
+# Build all packages/apps
+npm run build
+
+# Lint all workspaces (if lint scripts exist)
+npm run lint
+
+# Run tests in all workspaces (if test scripts exist)
+npm run test
+```
+
+---
+
+## 🧩 Runtime Configuration
+
+### Environment variables
+
+- `GOOGLE_API_KEY` (optional)
+  - Enables Gemini model usage for cloud/hybrid modes.
+  - If missing, cloud selection gracefully falls back to local Ollama.
+
+- `DEVAI_CONTEXT_PATH` (optional)
+  - Absolute path to the repository/codebase to index for semantic retrieval.
+  - If unset, defaults to the current working directory.
+
+Example:
+
+```bash
+export DEVAI_CONTEXT_PATH=/absolute/path/to/your/project
+export GOOGLE_API_KEY=your_key_here
+```
+
+---
+
+## 💬 Example Prompts
+
+- "How does the routing logic work in this project?"
+- "Read `packages/core/src/workflow.ts` and summarize it."
+- "Create a new utility file and implement factorial with tests."
+- "Show me the current git diff for tools package."
+
+---
+
+## 📌 Notes & Current Limitations
+
+- Vector store is in-memory (rebuilt each CLI session).
+- HITL sensitivity list is currently static in workflow.
+- Tooling focuses on filesystem + git primitives (not arbitrary shell execution).
+- Workspace test/lint coverage depends on scripts defined in each package.
+
+---
+
+## 🤝 Why this project matters
+
+DevAI Copilot demonstrates a practical pattern for building trustworthy coding agents:
+- **Explicit state machines over hidden loops**
+- **Role-specialized agents over one giant prompt**
+- **User approval checkpoints for high-impact actions**
+- **Local-first retrieval for code privacy and accuracy**
+
+If you are building production agentic systems, this repo is a great baseline architecture to extend.
