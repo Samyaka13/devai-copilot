@@ -21,6 +21,12 @@ export const DevAIState = Annotation.Root({
     default: () => "",
   }),
 
+  // Optional direct reply to the user from the Manager
+  replyToUser: Annotation<string>({
+    reducer: (x, y) => y ?? x,
+    default: () => "",
+  }),
+
   // Routing flag for LangGraph conditional edges
   next: Annotation<string>({
     reducer: (x, y) => y ?? x,

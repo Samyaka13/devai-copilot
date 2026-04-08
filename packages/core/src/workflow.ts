@@ -56,7 +56,7 @@ export function createDevAIGraph(config: DevAIModelConfig) {
     
     .addConditionalEdges("file_explorer", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      return (lastMessage as any)?.tool_calls?.length ? "tools" : END;
+      return (lastMessage as any)?.tool_calls?.length ? "tools" : "manager";
     })
     .addConditionalEdges("react", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
@@ -67,11 +67,11 @@ export function createDevAIGraph(config: DevAIModelConfig) {
         const isSensitive = toolCalls.some((tc: any) => sensitiveTools.includes(tc.name));
         return isSensitive ? "human_approval" : "tools";
       }
-      return END;
+      return "manager";
     })
     .addConditionalEdges("semantic_rag", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      return (lastMessage as any)?.tool_calls?.length ? "tools" : END;
+      return (lastMessage as any)?.tool_calls?.length ? "tools" : "manager";
     })
     .addEdge("chat", END)
     .addEdge("human_approval", "tools")

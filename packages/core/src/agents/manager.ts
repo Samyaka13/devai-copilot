@@ -5,7 +5,6 @@ import { ManagerDecisionSchema } from "../schema.js";
 
 export class ManagerAgent extends BaseAgent {
   constructor(model: any) {
-    // We pass the model up to the BaseAgent constructor
     super(model, "manager");
   }
 
@@ -25,6 +24,8 @@ CRITICAL RULES TO PREVENT INFINITE LOOPS:
 1. Analyze the chat history carefully. If the RAG or ReAct agent just provided a final answer that satisfies the user's request, you MUST choose "end". Do not repeat the task.
 2. For multi-step tasks (e.g., "Read X, then write Y"): If semantic_rag or file_explorer just finished reading X, you MUST now route to "react" to write Y. 
 3. Never route to the same agent twice in a row unless the user provided new instructions.
+4. Instead, choose "end" and provide the FINAL SUMMARY of the findings in the "replyToUser" field.
+5. If the user is just greeting you, choose "chat" or "end" and provide a greeting in "replyToUser".
 
 Current DevOps Context:
 - Active Branch: ${state.devopsContext.activeBranch}
@@ -55,6 +56,7 @@ Analyze the history, extract the next logical sub-task, and make your routing de
     return {
       next: decision.nextAgent,
       currentTask: decision.extractedTask,
+      replyToUser: decision.replyToUser || "",
       messages: [observationMessage],
     };
   }

@@ -1,4 +1,5 @@
-import "dotenv/config"; // Loads the .env file for the Gemini API Key
+// This code is written by Parth Lahoti
+import "dotenv/config"; 
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
 import { ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { HumanMessage } from "@langchain/core/messages";
@@ -6,7 +7,6 @@ import { createDevAIGraph, DevAIModelConfig } from "@devai/core";
 import * as readline from "node:readline";
 import * as fs from "node:fs";
 
-// New imports for the Codebase Loader
 import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
 import { DirectoryLoader } from "@langchain/classic/document_loaders/fs/directory";
 import { TextLoader } from "@langchain/classic/document_loaders/fs/text";
@@ -25,7 +25,7 @@ function getGeminiModel() {
     return getOllamaModel();
   }
   return new ChatGoogleGenerativeAI({
-    model: "gemini-1.5-flash",
+    model: "gemini-3-flash-preview",
     temperature: 0,
   });
 }
@@ -33,7 +33,7 @@ function getGeminiModel() {
 function getOllamaModel() {
   return new ChatOllama({
     baseUrl: "http://localhost:11434",
-    model: "llama3.1",
+    model: "qwen3.5:4b",
     temperature: 0,
   });
 }
@@ -171,6 +171,7 @@ function startChatLoop(graph: any) {
 
   // Create a unique thread ID for this specific terminal session
   const threadConfig = { configurable: { thread_id: "devai-cli-session" } };
+  console.log(threadConfig)
 
   const askQuestion = () => {
     rl.question("You: ", async (input) => {
@@ -183,7 +184,8 @@ function startChatLoop(graph: any) {
         console.log("\n[DevAI is thinking...]\n");
         
         // We only send the NEW message. The checkpointer handles the history!
-        const stateUpdate = { messages: [new HumanMessage(input)] };
+        // We also explicitly reset replyToUser so it doesn't leak between turns
+        const stateUpdate = { messages: [new HumanMessage(input)], replyToUser: "" };
         
         // Pass the threadConfig into the streamEvents function
         const stream = await graph.streamEvents(stateUpdate, { 
@@ -212,11 +214,26 @@ function startChatLoop(graph: any) {
           } else if (event.event === "on_tool_start") {
             console.log(`\nCalling tool: ${event.name}`);
           } else if (event.event === "on_tool_end") {
-            const output = typeof event.data?.output === 'string' ? event.data.output : JSON.stringify(event.data?.output, null, 2);
+            const raw = event.data?.output;
+            let output: string;
+            if (typeof raw === 'string') {
+              output = raw;
+            } else if (raw?.content && typeof raw.content === 'string') {
+              output = raw.content;
+            } else if (raw?.kwargs?.content && typeof raw.kwargs.content === 'string') {
+              output = raw.kwargs.content;
+            } else {
+              output = JSON.stringify(raw, null, 2);
+            }
             console.log(`Tool Response:\n\`\`\`\n${output}\n\`\`\`\n`);
           } else if (event.event === "on_chat_model_end") {
             if (event.metadata?.langgraph_node !== "manager") {
               console.log("\n");
+            }
+          } else if (event.event === "on_chain_end" && event.name === "manager") {
+            const reply = event.data?.output?.replyToUser;
+            if (reply) {
+              console.log(`\n🤖 DevAI: ${reply}\n`);
             }
           }
         }

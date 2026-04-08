@@ -5,6 +5,7 @@ export const ManagerDecisionSchema = z.object({
   nextAgent: z.enum(["semantic_rag", "file_explorer", "react", "human", "chat", "end"]),
   reasoning: z.string().describe("Explanation for why this agent was chosen"),
   extractedTask: z.string().describe("The specific sub-task for the next agent"),
+  replyToUser: z.string().optional().describe("A final conversational summary for the user if the task is complete or if you are greeting them."),
 });
 
 // Validates DevOps specific context
