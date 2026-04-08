@@ -173,7 +173,6 @@ function startChatLoop(graph: any) {
 
   // Create a unique thread ID for this specific terminal session
   const threadConfig = { configurable: { thread_id: "devai-cli-session" } };
-  console.log(threadConfig)
 
   const askQuestion = () => {
     rl.question("You: ", async (input) => {
