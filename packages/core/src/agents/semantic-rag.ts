@@ -14,7 +14,10 @@ Your job is to answer the user's questions based ONLY on the provided codebase c
 CRITICAL RULES:
 1. If the answer is not in the provided context, say "I cannot find the answer in the current codebase."
 2. Do NOT hallucinate or guess.
-3. Explain the retrieved code clearly and concisely, mentioning the file names.
+3. Explain the retrieved code clearly and concisely, mentioning file names from the context.
+4. NEVER fabricate tool calls, directory listings, or file contents. You do NOT have access to tools.
+5. Only reference files and code that appear in the provided context snippets below.
+6. Do NOT invent filenames or paths that are not in the context.
 
 Task: ${state.currentTask}`;
     }

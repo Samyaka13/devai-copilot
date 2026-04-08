@@ -5,7 +5,6 @@ import { HumanMessage } from "@langchain/core/messages";
 import { createDevAIGraph, DevAIModelConfig } from "@devai/core";
 import * as readline from "node:readline";
 import * as fs from "node:fs";
-import * as path from "node:path";
 
 // New imports for the Codebase Loader
 import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
@@ -64,31 +63,41 @@ async function getRetriever(choice: string) {
     }
   }
 
-  // 2. Load the actual code files dynamically (defaults to current working directory)
-  // Check if there is an explicit context path, otherwise use process.cwd()
-  let targetPath = process.env.DEVAI_CONTEXT_PATH || process.cwd();
-  
-  // If no env is set, and we are running inside apps/cli, let's restrict to a safe directory relative to it
-  // This prevents accidentally loading massive node_modules if run blindly
-  if (!process.env.DEVAI_CONTEXT_PATH && fs.existsSync(path.join(process.cwd(), "src"))) {
-    targetPath = path.join(process.cwd(), "src");
-  }
+  // 2. Load the actual code files dynamically
+  const targetPath = process.env.DEVAI_CONTEXT_PATH || process.cwd();
 
   // Gracefully handle if the target path doesn't exist
   if (!fs.existsSync(targetPath)) {
     console.warn(`\n⚠️  Codebase path ${targetPath} does not exist. Semantic RAG may return no results.`);
   }
 
+  console.log(`📂 Scanning codebase at: ${targetPath}`);
+
   const loader = new DirectoryLoader(
     targetPath, 
     {
       ".ts": (filePath) => new TextLoader(filePath),
       ".js": (filePath) => new TextLoader(filePath),
-    }
+      ".json": (filePath) => new TextLoader(filePath),
+      ".md": (filePath) => new TextLoader(filePath),
+      ".py": (filePath) => new TextLoader(filePath),
+      ".yaml": (filePath) => new TextLoader(filePath),
+      ".yml": (filePath) => new TextLoader(filePath),
+    },
+    true // recursive
   );
   
-  const docs = await loader.load();
-  console.log(`✅ Loaded ${docs.length} files from the codebase.`);
+  const rawDocs = await loader.load();
+
+  // Filter out node_modules, dist, .git, and lock files
+  const docs = rawDocs.filter(d => {
+    const src = d.metadata?.source || "";
+    return !src.includes("node_modules") 
+      && !src.includes("/dist/") 
+      && !src.includes(".git/")
+      && !src.includes("package-lock.json");
+  });
+  console.log(`✅ Loaded ${docs.length} files from the codebase (filtered from ${rawDocs.length} total).`);
 
   // 3. Split the code into chunks so the AI can digest it
   const splitter = new RecursiveCharacterTextSplitter({
@@ -115,7 +124,14 @@ console.log("=========================================\n");
 console.log("Choose your AI Engine architecture:");
 console.log("1. Fully Cloud [Default] (Gemini API - Fastest, Most Accurate)");
 console.log("2. Fully Local (Ollama - Maximum Privacy)");
-console.log("3. Hybrid (Manager: Gemini, Workers: Ollama)\n");
+console.log("3. Hybrid (Manager: Gemini, Workers: Ollama)");
+console.log("");
+if (process.env.DEVAI_CONTEXT_PATH) {
+  console.log(`📂 DEVAI_CONTEXT_PATH is set to: ${process.env.DEVAI_CONTEXT_PATH}`);
+} else {
+  console.log("💡 TIP: Set DEVAI_CONTEXT_PATH to target a specific project:");
+  console.log("   export DEVAI_CONTEXT_PATH=/path/to/your/project\n");
+}
 
 // Note: Made this callback 'async' to await the retriever
 rl.question("Enter 1, 2, or 3 (Press Enter for Default): ", async (choice) => {
@@ -194,7 +210,10 @@ function startChatLoop(graph: any) {
               process.stdout.write(chunk);
             }
           } else if (event.event === "on_tool_start") {
-            console.log(`\n\n🔧 [Executing Tool]: ${event.name}...`);
+            console.log(`\nCalling tool: ${event.name}`);
+          } else if (event.event === "on_tool_end") {
+            const output = typeof event.data?.output === 'string' ? event.data.output : JSON.stringify(event.data?.output, null, 2);
+            console.log(`Tool Response:\n\`\`\`\n${output}\n\`\`\`\n`);
           } else if (event.event === "on_chat_model_end") {
             if (event.metadata?.langgraph_node !== "manager") {
               console.log("\n");
