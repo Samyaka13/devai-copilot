@@ -173,13 +173,85 @@ npm run test
 
 ### Environment variables
 
-- `GOOGLE_API_KEY` (optional)
-  - Enables Gemini model usage for cloud/hybrid modes.
-  - If missing, cloud selection gracefully falls back to local Ollama.
+- `GOOGLE_API_KEY` *(optional)*
+  - Required to use **Gemini (cloud) models**.
 
-- `DEVAI_CONTEXT_PATH` (optional)
+- `GEMINI_MODEL` *(optional, required for cloud/hybrid)*
+  - Specifies which Gemini model to use (e.g., `gemini-1.5-pro`, `gemini-1.5-flash`).
+  - Used in **cloud** or **hybrid** modes.
+
+- `OLLAMA_MODEL` *(optional, required for local/hybrid)*
+  - Specifies the local model served via Ollama (e.g., `llama3`, `mistral`).
+  - **You must have the model installed locally** (`ollama pull <model>`).
+
+- `DEVAI_CONTEXT_PATH` *(optional)*
   - Absolute path to the repository/codebase to index for semantic retrieval.
-  - If unset, defaults to the current working directory.
+  - Defaults to the current working directory if not set.
+
+---
+
+### 🧠 Model Setup Modes
+
+#### ☁️ Cloud Mode (Gemini only)
+- Requires:
+  - `GOOGLE_API_KEY`
+  - `GEMINI_MODEL`
+
+#### 💻 Local Mode (Ollama only)
+- Requires:
+  - `OLLAMA_MODEL`
+- Ensure:
+  - Ollama is running
+  - Model is pulled locally
+
+#### 🔀 Hybrid Mode (Best of both)
+- Requires:
+  - `GOOGLE_API_KEY`
+  - `GEMINI_MODEL`
+  - `OLLAMA_MODEL`
+- Typical usage:
+  - Gemini → reasoning / planning  
+  - Ollama → execution / local tasks
+
+---
+
+### ⚠️ Important
+
+- If **no model is configured**, the CLI will not function.
+- If using **local-only setup**, you do NOT need a Google API key.
+- If using **cloud-only setup**, you do NOT need Ollama.
+
+---
+
+### Example
+
+```bash
+DEVAI_CONTEXT_PATH=/absolute/path/to/your/project
+
+# Cloud (Gemini)
+GOOGLE_API_KEY=your_key_here
+GEMINI_MODEL=gemini-1.5-pro
+
+# Local (Ollama)
+OLLAMA_MODEL=llama3
+
+### Environment variables
+
+- `GOOGLE_API_KEY` *(optional)*
+  - Required to use **Gemini (cloud) models**.
+
+- `GEMINI_MODEL` *(optional, required for cloud/hybrid)*
+  - Specifies which Gemini model to use (e.g., `gemini-1.5-pro`, `gemini-1.5-flash`).
+  - Used in **cloud** or **hybrid** modes.
+
+- `OLLAMA_MODEL` *(optional, required for local/hybrid)*
+  - Specifies the local model served via Ollama (e.g., `llama3`, `mistral`).
+  - **You must have the model installed locally** (`ollama pull <model>`).
+
+- `DEVAI_CONTEXT_PATH` *(optional)*
+  - Absolute path to the repository/codebase to index for semantic retrieval.
+  - Defaults to the current working directory if not set.
+
 
 Example:
 
