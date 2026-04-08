@@ -24,16 +24,18 @@ function getGeminiModel() {
     console.warn("⚠️  Falling back to Local Ollama model.\n");
     return getOllamaModel();
   }
+  const modelName = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
   return new ChatGoogleGenerativeAI({
-    model: "gemini-3-flash-preview",
+    model: modelName,
     temperature: 0,
   });
 }
 
 function getOllamaModel() {
+  const modelName = process.env.OLLAMA_MODEL || "qwen3.5:4b";
   return new ChatOllama({
     baseUrl: "http://localhost:11434",
-    model: "qwen3.5:4b",
+    model: modelName,
     temperature: 0,
   });
 }
