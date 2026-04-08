@@ -1,4 +1,3 @@
-// This code is written by Parth Lahoti
 import "dotenv/config"; 
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
 import { ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
