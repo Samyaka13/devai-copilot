@@ -10,7 +10,7 @@ import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
 import { DirectoryLoader } from "@langchain/classic/document_loaders/fs/directory";
 import { TextLoader } from "@langchain/classic/document_loaders/fs/text";
 import { RecursiveCharacterTextSplitter } from "@langchain/classic/text_splitter";
-
+import * as crypto from "node:crypto";
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -59,7 +59,7 @@ async function getRetriever(choice: string) {
       });
     } else {
       embeddings = new GoogleGenerativeAIEmbeddings({
-        model: "text-embedding-004",
+        model: "gemini-embedding-001",
       });
     }
   }
@@ -171,7 +171,8 @@ function startChatLoop(graph: any) {
   console.log("✅ DevAI Copilot Initialized. Type 'exit' to quit.\n");
 
   // Create a unique thread ID for this specific terminal session
-  const threadConfig = { configurable: { thread_id: "devai-cli-session" } };
+  const sessionId = crypto.randomUUID();
+  const threadConfig = { configurable: { thread_id: sessionId } };
 
   const askQuestion = () => {
     rl.question("You: ", async (input) => {
