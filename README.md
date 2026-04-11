@@ -177,7 +177,7 @@ npm run test
   - Required to use **Gemini (cloud) models**.
 
 - `GEMINI_MODEL` *(optional, required for cloud/hybrid)*
-  - Specifies which Gemini model to use (e.g., `gemini-1.5-pro`, `gemini-1.5-flash`).
+  - Specifies which Gemini model to use (e.g., `gemini-3-pro`, `gemini-3.1-flash`).
   - Used in **cloud** or **hybrid** modes.
 
 - `OLLAMA_MODEL` *(optional, required for local/hybrid)*
