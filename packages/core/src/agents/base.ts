@@ -1,5 +1,5 @@
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { SystemMessage, BaseMessage } from "@langchain/core/messages";
+import { SystemMessage, BaseMessage, AIMessage } from "@langchain/core/messages";
 import { DevAIStateType } from "../state.js";
 
 /**
@@ -36,5 +36,20 @@ export abstract class BaseAgent {
       new SystemMessage(this.getSystemPrompt(state)),
       ...state.messages,
     ];
+  }
+
+  /**
+   * Safely invokes a model or runnable with error handling.
+   */
+  protected async safeInvoke(messages: BaseMessage[], runnable: any = this.model): Promise<AIMessage> {
+    try {
+      return await runnable.invoke(messages);
+    } catch (error: any) {
+      console.error(`Error in agent ${this.name}:`, error);
+      return new AIMessage({
+        content: `Agent [${this.name}] encountered an error: ${error.message}. Routing back to manager.`,
+        name: this.name,
+      });
+    }
   }
 }

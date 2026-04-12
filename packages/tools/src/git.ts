@@ -1,15 +1,16 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const GIT_TIMEOUT = 30_000;
 
 // 1. Git Status Tool
 export const gitStatusTool = tool(
   async () => {
     try {
-      const { stdout } = await execAsync("git status --short");
+      const { stdout } = await execFileAsync("git", ["status", "--short"], { timeout: GIT_TIMEOUT });
       return stdout || "Working tree clean.";
     } catch (error: any) {
       return `Error executing git status: ${error.message}`;
@@ -26,8 +27,11 @@ export const gitStatusTool = tool(
 export const gitDiffTool = tool(
   async ({ filePath }) => {
     try {
-      const command = filePath ? `git diff ${filePath}` : "git diff";
-      const { stdout } = await execAsync(command);
+      const args = ["diff"];
+      if (filePath) {
+        args.push(filePath);
+      }
+      const { stdout } = await execFileAsync("git", args, { timeout: GIT_TIMEOUT });
       return stdout || "No unstaged changes.";
     } catch (error: any) {
       return `Error executing git diff: ${error.message}`;
@@ -46,9 +50,10 @@ export const gitDiffTool = tool(
 export const gitCommitTool = tool(
   async ({ message }) => {
     try {
-      // Stage all changes first, then commit
-      await execAsync("git add -A");
-      const { stdout } = await execAsync(`git commit -m "${message.replace(/"/g, '\\"')}"`);
+      // Stage all changes first
+      await execFileAsync("git", ["add", "-A"], { timeout: GIT_TIMEOUT });
+      // Then commit
+      const { stdout } = await execFileAsync("git", ["commit", "-m", message], { timeout: GIT_TIMEOUT });
       return stdout || "Commit created successfully.";
     } catch (error: any) {
       return `Error executing git commit: ${error.message}`;

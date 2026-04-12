@@ -160,10 +160,10 @@ npm run start --workspace @devai/cli
 # Build all packages/apps
 npm run build
 
-# Lint all workspaces (if lint scripts exist)
+# Lint all workspaces
 npm run lint
 
-# Run tests in all workspaces (if test scripts exist)
+# Run tests in all workspaces
 npm run test
 ```
 
@@ -234,32 +234,6 @@ GEMINI_MODEL=gemini-1.5-pro
 
 # Local (Ollama)
 OLLAMA_MODEL=llama3
-
-### Environment variables
-
-- `GOOGLE_API_KEY` *(optional)*
-  - Required to use **Gemini (cloud) models**.
-
-- `GEMINI_MODEL` *(optional, required for cloud/hybrid)*
-  - Specifies which Gemini model to use (e.g., `gemini-1.5-pro`, `gemini-1.5-flash`).
-  - Used in **cloud** or **hybrid** modes.
-
-- `OLLAMA_MODEL` *(optional, required for local/hybrid)*
-  - Specifies the local model served via Ollama (e.g., `llama3`, `mistral`).
-  - **You must have the model installed locally** (`ollama pull <model>`).
-
-- `DEVAI_CONTEXT_PATH` *(optional)*
-  - Absolute path to the repository/codebase to index for semantic retrieval.
-  - Defaults to the current working directory if not set.
-
-
-Example:
-
-```bash
-DEVAI_CONTEXT_PATH=/absolute/path/to/your/project
-GOOGLE_API_KEY=your_key_here
-GEMINI_MODEL=gemini_model_here
-OLLAMA_MODEL=ollama_model_here
 ```
 
 ---

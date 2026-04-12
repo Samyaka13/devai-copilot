@@ -1,9 +1,10 @@
 import { BaseAgent } from "./base.js";
 import { DevAIStateType } from "../state.js";
 import { allTools } from "@devai/tools";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export class ReActAgent extends BaseAgent {
-  constructor(model: any) {
+  constructor(model: BaseChatModel) {
     super(model, "react");
   }
 
@@ -25,7 +26,7 @@ Active Branch: ${state.devopsContext.activeBranch}
   }
 
   public async execute(state: DevAIStateType): Promise<Partial<DevAIStateType>> {
-    // 1. Safety check (keeping your excellent addition)
+    // 1. Safety check
     if (!this.model.bindTools) {
       throw new Error("The provided model does not support tool binding. A tool-calling LLM is required for the ReAct Agent.");
     }
@@ -36,9 +37,8 @@ Active Branch: ${state.devopsContext.activeBranch}
     // 3. Build the prompt using the conversation history
     const messages = this.buildPrompt(state);
 
-    // 4. Invoke the model
-    // The LLM will either return a tool call (e.g., write_file) or a standard message if it's done.
-    const response = await modelWithTools.invoke(messages);
+    // 4. Invoke the model safely
+    const response = await this.safeInvoke(messages, modelWithTools);
 
     // 5. Return the new message to append to the state
     return {

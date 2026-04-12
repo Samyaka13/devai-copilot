@@ -1,9 +1,11 @@
 import { DevAIStateType } from "../state.js";
 import { BaseAgent } from "./base.js";
 import { HumanMessage } from "@langchain/core/messages";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { VectorStoreRetriever } from "@langchain/core/vectorstores";
 
 export class SemanticRagAgent extends BaseAgent {
-    constructor(model: any, private retriever: any) {
+    constructor(model: BaseChatModel, private retriever: VectorStoreRetriever | null) {
         super(model, "semantic_rag");
     }
 
@@ -51,8 +53,8 @@ Task: ${state.currentTask}`;
             new HumanMessage(`Here is the retrieved context from the codebase to help you answer the user's request:\n\n${context}`)
         ];
 
-        // 5. Generate the response
-        const response = await this.model.invoke(finalMessages);
+        // 5. Generate the response safely
+        const response = await this.safeInvoke(finalMessages);
 
         // 6. Return the AI's response to update the graph state
         return {

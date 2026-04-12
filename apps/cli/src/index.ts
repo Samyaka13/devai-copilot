@@ -16,6 +16,21 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
+// --- Graceful Shutdown ---
+function shutdown() {
+  console.log("\n\n👋 Farewell from DevAI Copilot! Happy coding.\n");
+  rl.close();
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
+rl.on("close", () => {
+  // Only called if rl.close() is triggered manually elsewhere without process.exit
+  console.log("\nDevAI session closed.");
+});
+
 // --- Helper Functions to initialize models ---
 function getGeminiModel() {
   if (!process.env.GOOGLE_API_KEY) {
@@ -136,16 +151,38 @@ if (process.env.DEVAI_CONTEXT_PATH) {
 
 // Note: Made this callback 'async' to await the retriever
 rl.question("Enter 1, 2, or 3 (Press Enter for Default): ", async (choice) => {
+  const mode = choice || "1";
+
+  // 1. Validate Environment Variables & Services
+  if (mode === "1" || mode === "3") {
+    if (!process.env.GOOGLE_API_KEY) {
+      console.error("\n❌ ERROR: GOOGLE_API_KEY is required for Cloud or Hybrid mode.");
+      console.error("Please add it to your .env file and restart.\n");
+      process.exit(1);
+    }
+  }
+
+  if (mode === "2" || mode === "3") {
+    try {
+      const response = await fetch("http://localhost:11434/api/tags");
+      if (!response.ok) throw new Error("Ollama returned non-OK status");
+    } catch (error) {
+      console.error("\n❌ ERROR: Ollama is not reachable at http://localhost:11434");
+      console.error("Please ensure Ollama is installed and running for Local or Hybrid mode.\n");
+      process.exit(1);
+    }
+  }
+
   let config: DevAIModelConfig;
 
   // Build the retriever FIRST so we can inject it
-  const myVectorStoreRetriever = await getRetriever(choice);
+  const myVectorStoreRetriever = await getRetriever(mode);
 
-  if (choice === "2") {
+  if (mode === "2") {
     console.log("\n⚙️  Booting Fully Local Architecture...");
     const ollama = getOllamaModel();
     config = { managerModel: ollama, ragModel: ollama, reactModel: ollama, retriever: myVectorStoreRetriever };
-  } else if (choice === "3") {
+  } else if (mode === "3") {
     console.log("\n⚙️  Booting Hybrid Architecture...");
     config = {
       managerModel: getGeminiModel(),
@@ -270,8 +307,8 @@ function startChatLoop(graph: any) {
               askQuestion();
             } else {
               console.log("\n❌ Action denied. Resetting state.\n");
-              // A real implementation might append an error to messages,
-              // for now we just gracefully ask the next question and do NOT resume.
+              // Update state to reflect rejection
+              await graph.updateState(threadConfig, { approvalState: "rejected" });
               console.log("\n-----------------------------------");
               askQuestion();
             }

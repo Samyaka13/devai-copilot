@@ -1,15 +1,18 @@
-import { StateGraph, START, END, MemorySaver, interrupt } from "@langchain/langgraph"; // <-- Added MemorySaver and interrupt
+import { StateGraph, START, END, MemorySaver, interrupt } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { DevAIState, DevAIStateType } from "./state.js";
 import { ManagerAgent, FileExplorerAgent, ReActAgent, ChatAgent } from "./agents/index.js";
 import { allTools } from "@devai/tools";
 import { SemanticRagAgent } from "./agents/semantic-rag.js";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { VectorStoreRetriever } from "@langchain/core/vectorstores";
+import { isAIMessage } from "@langchain/core/messages";
 
 export interface DevAIModelConfig {
-  managerModel: any;
-  ragModel: any;
-  reactModel: any;
-  retriever: any;
+  managerModel: BaseChatModel;
+  ragModel: BaseChatModel;
+  reactModel: BaseChatModel;
+  retriever: VectorStoreRetriever | null;
 }
 
 export function createDevAIGraph(config: DevAIModelConfig) {
@@ -30,18 +33,28 @@ export function createDevAIGraph(config: DevAIModelConfig) {
     .addNode("human_approval", (state: DevAIStateType) => {
       // Flag sensitive tool calls using LangGraph v2 interrupt API
       const lastMessage = state.messages[state.messages.length - 1];
-      const toolCalls = (lastMessage as any)?.tool_calls;
+      const toolCalls = isAIMessage(lastMessage) ? lastMessage.tool_calls : [];
       
+      // Always transition to pending first to signal HITL is waiting for this specific set of tools
+      if (state.approvalState !== "pending") {
+        return { approvalState: "pending" };
+      }
+
+      // Trigger the interrupt
       interrupt({
         action: "approve_tools",
         toolCalls: toolCalls
       });
       
-      // If user denied, we could append an error message or similar
-      // For now, we trust the CLI only resumes if approved.
-      return state;
+      // If we resumed from interrupt, it means it's approved
+      return { approvalState: "approved" };
     })
     .addNode("tools", toolNode)
+    .addNode("cleanup", () => ({ 
+      approvalState: "none",
+      // We also reset next to manager to ensure a clean slate for the next iteration
+      next: "manager" 
+    }))
     
     .addEdge(START, "manager")
     
@@ -56,27 +69,34 @@ export function createDevAIGraph(config: DevAIModelConfig) {
     
     .addConditionalEdges("file_explorer", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      return (lastMessage as any)?.tool_calls?.length ? "tools" : "manager";
+      return isAIMessage(lastMessage) && lastMessage.tool_calls?.length ? "tools" : "manager";
     })
     .addConditionalEdges("react", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      const toolCalls = (lastMessage as any)?.tool_calls;
-      if (toolCalls && toolCalls.length > 0) {
-        // Flag sensitive tool calls
-        const sensitiveTools = ["write_file", "git_status", "git_diff", "git_commit"];
-        const isSensitive = toolCalls.some((tc: any) => sensitiveTools.includes(tc.name));
-        return isSensitive ? "human_approval" : "tools";
+      if (isAIMessage(lastMessage)) {
+        const toolCalls = lastMessage.tool_calls;
+        if (toolCalls && toolCalls.length > 0) {
+          // Flag sensitive tool calls
+          const sensitiveTools = ["write_file", "git_status", "git_diff", "git_commit"];
+          const isSensitive = toolCalls.some((tc) => sensitiveTools.includes(tc.name));
+          return isSensitive ? "human_approval" : "tools";
+        }
       }
       return "manager";
     })
     .addConditionalEdges("semantic_rag", (state: DevAIStateType) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      return (lastMessage as any)?.tool_calls?.length ? "tools" : "manager";
+      return isAIMessage(lastMessage) && lastMessage.tool_calls?.length ? "tools" : "manager";
     })
     .addEdge("chat", END)
-    .addEdge("human_approval", "tools")
+    // human_approval needs a conditional edge to loop back when it returns 'pending'
+    .addConditionalEdges("human_approval", (state: DevAIStateType) => {
+        if (state.approvalState === "pending") return "human_approval";
+        return "tools";
+    })
     
-    .addEdge("tools", "manager");
+    .addEdge("tools", "cleanup")
+    .addEdge("cleanup", "manager");
 
   // Initialize the in-memory database
   const checkpointer = new MemorySaver();

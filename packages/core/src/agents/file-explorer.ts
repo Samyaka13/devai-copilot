@@ -1,9 +1,10 @@
 import { BaseAgent } from "./base.js";
 import { DevAIStateType } from "../state.js";
 import { readOnlyTools } from "@devai/tools";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export class FileExplorerAgent extends BaseAgent {
-  constructor(model: any) {
+  constructor(model: BaseChatModel) {
     super(model, "file_explorer");
   }
 
@@ -32,10 +33,8 @@ Current Task from Manager: ${state.currentTask}
     // 2. Build the prompt using the conversation history
     const messages = this.buildPrompt(state);
 
-    // 3. Invoke the model
-    // If it needs to read a file, the response will contain a 'tool_calls' array.
-    // If it already read the file on a previous loop, it will return the final text answer.
-    const response = await modelWithTools.invoke(messages);
+    // 3. Invoke the model safely
+    const response = await this.safeInvoke(messages, modelWithTools);
 
     // 4. Return the new message to append to the state
     return {

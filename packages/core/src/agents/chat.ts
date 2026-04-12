@@ -1,8 +1,9 @@
 import { BaseAgent } from "./base.js";
 import { DevAIStateType } from "../state.js";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export class ChatAgent extends BaseAgent {
-  constructor(model: any) {
+  constructor(model: BaseChatModel) {
     super(model, "chat");
   }
 
@@ -23,7 +24,7 @@ Keep responses short (2-4 sentences) unless the user asks for more detail.`;
 
   public async execute(state: DevAIStateType): Promise<Partial<DevAIStateType>> {
     const messages = this.buildPrompt(state);
-    const response = await this.model.invoke(messages);
+    const response = await this.safeInvoke(messages);
     return {
       messages: [response],
     };

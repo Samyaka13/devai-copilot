@@ -2,9 +2,10 @@ import { AIMessage } from "@langchain/core/messages";
 import { BaseAgent } from "./base.js";
 import { DevAIStateType } from "../state.js";
 import { ManagerDecisionSchema } from "../schema.js";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export class ManagerAgent extends BaseAgent {
-  constructor(model: any) {
+  constructor(model: BaseChatModel) {
     super(model, "manager");
   }
 
@@ -43,20 +44,32 @@ Analyze the history, extract the next logical sub-task, and make your routing de
     // 2. Build the prompt using the BaseAgent utility
     const messages = this.buildPrompt(state);
 
-    // 3. Invoke the model. Because of withStructuredOutput, 'decision' is strictly typed!
-    const decision = await structuredModel.invoke(messages);
+    // 3. Invoke the model safely
+    const decision = await this.safeInvoke(messages, structuredModel);
 
-    // 4. Create an AI message for observability (so users can see the routing process)
+    // 4. Handle potential invocation error
+    if (decision instanceof AIMessage && typeof decision.content === "string" && decision.content.includes("encountered an error")) {
+      return {
+        messages: [decision],
+        next: "end", // Gracefully exit on manager failure
+        replyToUser: "I encountered an internal error while analyzing your request. Please try again in a moment.",
+      };
+    }
+
+    // At this point, decision is the structured output from the model
+    const result = decision as any;
+
+    // 5. Create an AI message for observability
     const observationMessage = new AIMessage({
-      content: `[Manager Decision] Routing to: ${decision.nextAgent}. Reasoning: ${decision.reasoning}`,
+      content: `[Manager Decision] Routing to: ${result.nextAgent}. Reasoning: ${result.reasoning}`,
       name: "manager",
     });
 
-    // 5. Return the state updates
+    // 6. Return the state updates
     return {
-      next: decision.nextAgent,
-      currentTask: decision.extractedTask,
-      replyToUser: decision.replyToUser || "",
+      next: result.nextAgent,
+      currentTask: result.extractedTask,
+      replyToUser: result.replyToUser || "",
       messages: [observationMessage],
     };
   }
